@@ -38,14 +38,18 @@ int main(int argc, char* argv[])
     session.login();
 
     cout << "Retrieving devices information" << endl;
-
     session.retrieveDevicesInfo();
 
     cout << "Found " << session.getDevices().size() << " "
-         << (1 == session.getDevices().size() ? "device." : "devices.")
-         << endl;
+         << (1 == session.getDevices().size() ? "device." : "devices. ")
+         << "Would you like to list them? (y/n)" << endl;
 
-    cout << "Temperature sensors: " << endl;
+    char input;
+    cin >> input;
+    if ('y' == input)
+      session.printDevicesInfo();
+
+    cout << "\nFound following temperature sensors: " << endl;
     session.printDevicesValues();
   }
   catch (const exception& e) {
@@ -55,43 +59,21 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  thread background_thread([&session]() {
-    blocker.lock();
-    cout << "Type \"c\" to start automatic data update or anything else to stop" << endl;
-    char c;
-    cin >> c;
-    if (c != 'c') {
-      RestClient::disable();
-      terminate();
-    }
+  cout << "Would you like to start refreshing the devices? (y/n)" << endl;
 
-    cout << "Initializing data update (press CTRL+C to exit)" << endl;
+  char input;
+  cin >> input;
+  if ('y' == input)
+    session.run();
+  else {
+    cout << "Retrieving a single update" << endl;
     int last = session.initializeRefresh();
-    cout << "Awaiting response from the server" << endl;
-
-    blocker.unlock();
-
-    while (true) {
-      try {
-        session.refreshStates(last);
-      }
-      catch (const exception& e) {
-        cout << e.what() << "\n";
-        cout << "Did not receive status for 30 seconds. Retrying." << endl;
-        continue;
-      }
-
-      blocker.lock();
-      session.printDevicesValues();
-      blocker.unlock();
-
-      this_thread::sleep_for(1s);
-    }
-  });
+    session.refreshStates(last);
+  }
 
   // Do other things
 
-  background_thread.join();
+  session.join();
   RestClient::disable();
 }
 

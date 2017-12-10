@@ -4,15 +4,10 @@ project(hc_client)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-#
-# Manually installed:
-# restclient-cpp (https://github.com/mrtazz/restclient-cpp)
-# rapidjson (https://github.com/Tencent/rapidjson)
-#
 find_package(Boost REQUIRED system)
-include_directories(${Boost_INCLUDE_DIRS} /usr/local/include/)
+include_directories(${Boost_INCLUDE_DIRS})
 
-add_executable(hc_client main.cpp include/device.hpp include/session.hpp)
+add_executable(hc_client hc_client.cpp include/device.hpp include/session.hpp)
 target_link_libraries(hc_client curl restclient-cpp pthread ${Boost_LIBRARIES})
 
 add_executable(hc_client_test test/test.cpp)

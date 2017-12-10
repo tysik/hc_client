@@ -33,7 +33,7 @@ public:
   Device(Device&& rhs) = default;
 
   /**
-   * @brief Construction of device from a JSON element
+   * @brief Construction of a device from a JSON element
    * @param element is a parsed JSON object
    */
   Device(const rapidjson::Value& element) {
@@ -42,12 +42,18 @@ public:
 
      if (element.HasMember("id") && element["id"].IsNumber())
        id_ = element["id"].GetInt();
+     else
+       id_ = -1;
 
      if (element.HasMember("name") && element["name"].IsString())
        name_ = element["name"].GetString();
+     else
+       name_ = std::string("name_error");
 
      if (element.HasMember("enabled") && element["enabled"].IsBool())
        enabled_ = element["enabled"].GetBool();
+     else
+       enabled_ = false;
 
      type_ = DeviceType::UnknownDeviceType;
   }
@@ -101,7 +107,7 @@ public:
   Device& operator=(Device&& rhs) = default;
 
   friend std::ostream &operator<<(std::ostream& out, const Device& device) {
-    out << "Device: " << device.id_ << " : " << device.name_ << " is " <<
+    out << "[" << device.id_ << "]: " << device.name_ << " is " <<
            (device.enabled_ ? "enabled" : "disabled") << ".";
 
     return out;
@@ -130,7 +136,7 @@ public:
   TemperatureSensor(TemperatureSensor&& rhs) = default;
 
   /**
-   * @brief Construction of temperature sensor from a JSON element
+   * @brief Construction of a temperature sensor from a JSON element
    * @param element is a parsed JSON element
    */
   TemperatureSensor(const rapidjson::Value& element) :
@@ -151,6 +157,8 @@ public:
 
       if (properties.HasMember("unit") && properties["unit"].IsString())
         unit_ = properties["unit"].GetString();
+      else
+        unit_ = std::string("unit_error");
     }
 
     type_ = DeviceType::TemperatureSensorType;
@@ -177,22 +185,22 @@ public:
 
   /**
    * @brief Temperature
-   * @return most recent temperature reading
+   * @return most recent temperature reading or NaN if not available
    */
   double temperature() const {
     if (recent_temperatures_.empty())
-      return 0.0;
+      return NAN;
     else
       return recent_temperatures_.back();
   }
 
   /**
    * @brief Average Temperature
-   * @return Mean value of recently registered temperatures
+   * @return Mean value of recently registered temperatures or NaN if not available
    */
   double averageTemperature() const {
     if (recent_temperatures_.empty())
-      return 0.0;
+      return NAN;
 
     return std::accumulate(recent_temperatures_.begin(),
                            recent_temperatures_.end(), 0.0) /
@@ -208,32 +216,31 @@ public:
 private:
 
   /**
-   * @brief MAX_BUFFER_SIZE
-   * Size of circular buffer for storing most recent temperature values
+   * @brief Size of circular buffer for storing most recent temperature values
    */
   static const size_t MAX_BUFFER_SIZE = 24;
 
   /**
-   * @brief recent_temperatures_
-   * Buffer for storing most recent temperature values
+   * @brief Buffer for storing most recent temperature values
    */
   boost::circular_buffer<double> recent_temperatures_;
-  std::string unit_;    /**< Physical unit of the temperature */
+
+  std::string unit_;    /**< Physical unit of temperature values */
 };
+
 
 using DevicePtr = std::shared_ptr<Device>;
 
 /**
- * @brief Simple Device Factory
- *
- * Creates instances of Devices based on retrieved REST object.
- *
- * @param connection is forwarded to the device to allow updates
- * @param object is an JSON ob
-ject from which the device will be initialized
+ * @brief Simple device factory
+ * Creates instances of Devices based on retrieved JSON object.
+ * @param object is an JSON object from which the device will be initialized
  * @return instance of appropriate device
  */
 DevicePtr simpleDeviceFactory(const rapidjson::Value& object) {
+  if (!object.HasMember("type") || !object["type"].IsString())
+    throw std::logic_error("Could not instantiate device from object without type");
+
   if (std::string("com.fibaro.temperatureSensor") == object["type"].GetString())
     return DevicePtr(new TemperatureSensor(object));
   else
